@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>UNO Multiplayer Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="color-theme-neutral">
+  <div class="ambient-glow" id="ambient-glow"></div>
+  <canvas id="confetti-canvas"></canvas>
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Giant Comic FX Shout Overlay -->
+  <div id="fx-comic-shout" class="fx-comic-shout">
+    <div class="comic-bubble" id="comic-bubble-text">UNO!</div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="uno-logo-badge">
+          <span class="uno-letter u">U</span>
+          <span class="uno-letter n">N</span>
+          <span class="uno-letter o">O</span>
+        </div>
+      </div>
+
+      <div class="nav-center">
+        <!-- Room Code Pill (Shown when inside room) -->
+        <div class="room-pill" id="room-code-pill" style="display: none;" title="Tap to copy Room Code">
+          <span class="pill-label">ROOM:</span>
+          <span class="pill-code" id="nav-room-code">----</span>
+          <span class="pill-copy-icon">📋</span>
+        </div>
+
+        <!-- User Profile Pill -->
+        <button id="nav-user-pill" class="user-profile-pill" title="Tap to Change Profile">
+          <span id="nav-user-avatar">🦊</span>
+          <span id="nav-user-name">Player</span>
+          <span class="edit-icon">✏️</span>
+        </button>
+      </div>
+
+      <div class="nav-actions">
+        <button id="rules-btn" class="icon-btn" title="Game Rules">📖</button>
+        <button id="sound-btn" class="icon-btn" title="Toggle Sound">🔊</button>
+      </div>
+    </header>
+
+    <!-- SCREEN 1: LOBBY -->
+    <main id="lobby-screen" class="screen-view active">
+      <div class="lobby-card">
+        <!-- Initial Setup Section -->
+        <div id="lobby-setup" class="lobby-section">
+          <div class="lobby-header">
+            <h1 class="main-title">UNO MULTIPLAYER</h1>
+            <p class="subtitle">Multiplayer Card Arena • Play with Friends</p>
+            
+            <div class="rules-summary-badges">
+              <span class="rule-badge">⚡ +4 pe +2 Stack Allowed</span>
+              <span class="rule-badge">🚨 UNO Catch Penalty = Total Players</span>
+              <span class="rule-badge">🏆 Winner Podium (No Points!)</span>
+            </div>
+          </div>
+
+          <!-- Profile Setup -->
+          <div class="profile-card">
+            <label class="section-label">CHOOSE AVATAR & USERNAME</label>
+            <div class="avatar-grid" id="avatar-grid">
+              <button type="button" class="avatar-opt active" data-avatar="🦊">🦊</button>
+              <button type="button" class="avatar-opt" data-avatar="🦁">🦁</button>
+              <button type="button" class="avatar-opt" data-avatar="🐼">🐼</button>
+              <button type="button" class="avatar-opt" data-avatar="🐯">🐯</button>
+              <button type="button" class="avatar-opt" data-avatar="🦄">🦄</button>
+              <button type="button" class="avatar-opt" data-avatar="🚀">🚀</button>
+              <button type="button" class="avatar-opt" data-avatar="👑">👑</button>
+              <button type="button" class="avatar-opt" data-avatar="⚡">⚡</button>
+              <button type="button" class="avatar-opt" data-avatar="🧙">🧙</button>
+              <button type="button" class="avatar-opt" data-avatar="🎯">🎯</button>
+              <button type="button" class="avatar-opt" data-avatar="🔥">🔥</button>
+              <button type="button" class="avatar-opt" data-avatar="😎">😎</button>
+            </div>
+
+            <div class="input-row">
+              <input type="text" id="player-name-input" maxlength="14" placeholder="Enter username (e.g. Rahul)" value="Player">
+            </div>
+          </div>
+
+          <!-- Actions Grid -->
+          <div class="actions-grid">
+            <!-- Create Room -->
+            <div class="action-card">
+              <div class="card-icon">👑</div>
+              <h3>CREATE ROOM</h3>
+              <p>Create a private room & share the code with friends.</p>
+              <button id="btn-create-room" class="btn btn-primary pulse-btn">Create Room</button>
+            </div>
+
+            <!-- Join Room -->
+            <div class="action-card">
+              <div class="card-icon">🎮</div>
+              <h3>JOIN ROOM</h3>
+              <p>Enter the 4-letter room code to join.</p>
+              <div class="join-input-row">
+                <input type="text" id="join-code-input" maxlength="4" placeholder="CODE" autocomplete="off" style="text-transform: uppercase;">
+                <button id="btn-join-room" class="btn btn-secondary">Join</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Waiting In Room Section -->
+        <div id="lobby-waiting" class="lobby-section" style="display: none;">
+          <div class="waiting-header">
+            <span class="room-label">ROOM CODE</span>
+            <div class="room-code-box">
+              <span id="lobby-room-code" class="big-room-code">----</span>
+              <button id="btn-copy-code" class="btn btn-sm btn-outline">📋 Copy Link</button>
+            </div>
+          </div>
+
+          <div class="players-list-section">
+            <div class="players-list-header">
+              <h3>PLAYERS (<span id="slots-count">1</span>/8)</h3>
+              <button id="btn-add-bot" class="btn btn-sm btn-outline">+ Add Player</button>
+            </div>
+            <div class="players-grid" id="lobby-players-grid">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <div class="waiting-footer">
+            <p id="waiting-status-text" class="status-msg">Waiting for host to start the match (min 2 players)...</p>
+            <button id="btn-start-game" class="btn btn-primary btn-lg pulse-btn" style="display: none;">START MATCH 🚀</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SCREEN 2: GAMEPLAY ARENA -->
+    <main id="game-screen" class="screen-view">
+      <!-- Status Ticker Banner -->
+      <div id="game-status-banner" class="status-ticker">
+        <span class="ticker-pulse"></span>
+        <span id="ticker-text">Game started!</span>
+      </div>
+
+      <!-- Active Stacking Attack Banner -->
+      <div id="draw-stack-alert" class="draw-stack-alert" style="display: none;">
+        <span class="stack-icon">⚡</span>
+        <span class="stack-text">ATTACK ACTIVE: <strong id="stack-count">+4</strong> CARDS! Counter with +2 / +4 or Draw!</span>
+      </div>
+
+      <!-- Opponents Zone (Top) -->
+      <section class="opponents-zone" id="opponents-zone">
+        <!-- Rendered opponent cards -->
+      </section>
+
+      <!-- Center Table (Draw Pile, Discard Pile, Color Glow) -->
+      <section class="table-center">
+        <div class="direction-ring clockwise" id="direction-ring">
+          <div class="orbit-arrow arrow-1">➤</div>
+          <div class="orbit-arrow arrow-2">➤</div>
+          <div class="orbit-arrow arrow-3">➤</div>
+          <div class="orbit-arrow arrow-4">➤</div>
+        </div>
+
+        <div class="table-felt">
+          <!-- Active Color Label -->
+          <div class="color-badge" id="color-badge">
+            <span id="active-color-label">RED</span>
+          </div>
+
+          <!-- Draw Pile -->
+          <div class="draw-pile-container" id="draw-pile-btn" title="Tap to Draw Card">
+            <div class="deck-shadow deck-stack-2"></div>
+            <div class="uno-card card-back">
+              <div class="card-inner">
+                <div class="card-oval">
+                  <span class="deck-uno-text">UNO</span>
+                </div>
+              </div>
+            </div>
+            <div class="draw-pile-badge" id="draw-count-badge">84</div>
+            <div class="draw-prompt-label">DRAW</div>
+          </div>
+
+          <!-- Discard Pile -->
+          <div class="discard-pile-container" id="discard-pile">
+            <!-- Dynamic top card -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Player Hand & Controls (Bottom) -->
+      <section class="player-zone" id="player-zone">
+        <!-- Action Buttons -->
+        <div class="action-buttons-bar">
+          <button id="btn-call-uno" class="btn-uno-shout pulse-uno" title="Call UNO when you have 1 or 2 cards!">
+            📢 CALL UNO!
+          </button>
+
+          <button id="btn-catch-uno" class="btn-catch-uno" style="display: none;" title="Catch vulnerable player!">
+            🚨 CATCH UNO! <span id="catch-victim-name"></span>
+          </button>
+
+          <button id="btn-pass-turn" class="btn btn-sm btn-outline" style="display: none;">
+            Pass Turn ⏭️
+          </button>
+        </div>
+
+        <!-- Status & Timer -->
+        <div class="player-status-bar">
+          <div class="player-info-wrap">
+            <span class="player-avatar" id="my-avatar">🦊</span>
+            <span class="player-name" id="my-name">You</span>
+            <span class="my-turn-badge" id="my-turn-indicator" style="display: none;">YOUR TURN</span>
+          </div>
+          <div class="turn-timer-container">
+            <div class="turn-timer-bar" id="turn-timer-bar"></div>
+          </div>
+        </div>
+
+        <!-- Big Prominent Your Turn Banner -->
+        <div id="your-turn-banner" class="your-turn-banner" style="display: none;">
+          <span class="turn-sparkle">✨</span>
+          <span class="turn-banner-text">IT'S YOUR TURN TO PLAY!</span>
+          <span class="turn-sub-text">(Select a card or Tap DRAW)</span>
+        </div>
+
+        <!-- Hand Cards (Horizontally Scrollable) -->
+        <div class="player-cards-wrapper">
+          <div class="player-cards-hand" id="player-hand">
+            <!-- Rendered cards -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODAL 1: COLOR PICKER -->
+    <div id="color-picker-modal" class="modal-backdrop">
+      <div class="dialog-box">
+        <h2>CHOOSE ACTIVE COLOR</h2>
+        <div class="color-grid">
+          <button class="color-select-btn btn-red" data-color="red">RED</button>
+          <button class="color-select-btn btn-blue" data-color="blue">BLUE</button>
+          <button class="color-select-btn btn-green" data-color="green">GREEN</button>
+          <button class="color-select-btn btn-yellow" data-color="yellow">YELLOW</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: WINNERS PODIUM -->
+    <div id="round-over-modal" class="modal-backdrop">
+      <div class="dialog-box">
+        <div class="trophy-icon">🏆</div>
+        <h2>MATCH FINISHED!</h2>
+        <p class="dialog-subtitle">Winners Podium</p>
+        <div class="podium-table" id="modal-scoreboard-table">
+          <!-- Rendered podium -->
+        </div>
+        <button id="btn-next-round" class="btn btn-primary btn-lg pulse-btn" style="margin-top: 16px; width: 100%;">Play Again 🚀</button>
+      </div>
+    </div>
+
+    <!-- MODAL 3: PROFILE MODAL -->
+    <div id="username-modal" class="modal-backdrop">
+      <div class="dialog-box">
+        <div class="dialog-header">
+          <h2>Set Profile</h2>
+          <button id="close-username-btn" class="close-btn">✕</button>
+        </div>
+        <div class="avatar-grid" id="modal-avatar-grid">
+          <button type="button" class="avatar-opt" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-opt" data-avatar="🦁">🦁</button>
+          <button type="button" class="avatar-opt" data-avatar="🐼">🐼</button>
+          <button type="button" class="avatar-opt" data-avatar="🐯">🐯</button>
+          <button type="button" class="avatar-opt" data-avatar="🦄">🦄</button>
+          <button type="button" class="avatar-opt" data-avatar="🚀">🚀</button>
+          <button type="button" class="avatar-opt" data-avatar="👑">👑</button>
+          <button type="button" class="avatar-opt" data-avatar="⚡">⚡</button>
+          <button type="button" class="avatar-opt" data-avatar="🧙">🧙</button>
+          <button type="button" class="avatar-opt" data-avatar="🎯">🎯</button>
+          <button type="button" class="avatar-opt" data-avatar="🔥">🔥</button>
+          <button type="button" class="avatar-opt" data-avatar="😎">😎</button>
+        </div>
+        <div class="input-row" style="margin-top: 12px;">
+          <input type="text" id="modal-username-input" maxlength="14" placeholder="Username">
+        </div>
+        <button id="btn-save-username" class="btn btn-primary" style="margin-top: 14px; width: 100%;">Save Profile ✓</button>
+      </div>
+    </div>
+
+    <!-- MODAL 4: RULES MODAL -->
+    <div id="rules-modal" class="modal-backdrop">
+      <div class="dialog-box rules-dialog">
+        <div class="dialog-header">
+          <h2>UNO Rules</h2>
+          <button id="close-rules-btn" class="close-btn">✕</button>
+        </div>
+        <div class="rules-list">
+          <div class="rule-item highlight">
+            <h4>⚡ Special House Rules</h4>
+            <p><strong>+4 pe +2 Allowed:</strong> Counter attacks with +2 or +4 to stack the penalty onto the next player!</p>
+            <p><strong>UNO Penalty:</strong> If caught not saying UNO with 1 card left, penalty = <em>total players in the match</em> cards!</p>
+            <p><strong>Winners:</strong> 5+ players = Top 2 Winners, 2-3 players = 1-2 Winners. No points system!</p>
+          </div>
+          <div class="rule-item">
+            <h4>🎴 Basic Gameplay</h4>
+            <p>Match cards by Color, Number, or Action Symbol. Wild cards can be played anytime.</p>
+            <p>If you don't have a card, tap the Draw deck. First players to empty their hands win the podium!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="sound.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
