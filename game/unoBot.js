@@ -1,5 +1,5 @@
-// Smart AI Bot Controller for UNO
-const { COLORS } = require('./unoDeck');
+const deckModule = (typeof require !== 'undefined') ? require('./unoDeck') : (window.UnoDeck || {});
+const { COLORS } = deckModule;
 
 class UnoBot {
   constructor(game) {
@@ -97,4 +97,9 @@ class UnoBot {
   }
 }
 
-module.exports = UnoBot;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = UnoBot;
+}
+if (typeof window !== 'undefined') {
+  window.UnoBot = UnoBot;
+}

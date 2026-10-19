@@ -1,4 +1,5 @@
-const { createDeck, shuffle, isValidPlay, COLORS } = require('./unoDeck');
+const deckModule = (typeof require !== 'undefined') ? require('./unoDeck') : (window.UnoDeck || {});
+const { createDeck, shuffle, isValidPlay, COLORS } = deckModule;
 
 class UnoGame {
   constructor(roomCode) {
@@ -36,14 +37,14 @@ class UnoGame {
 
   calculateMaxWinners() {
     const total = this.players.length;
-    if (total <= 2) return 1;
-    if (total <= 5) return 2; // e.g. 5 players -> 2 winners
-    return 3; // 6-8 players -> 3 winners
+    if (total <= 3) return 1;
+    if (total <= 6) return 2;
+    return 3; // 7-10 players -> Top 3 Winners
   }
 
   addPlayer(id, name, avatar = '🦊', isBot = false) {
-    if (this.players.length >= 8) {
-      return { success: false, message: 'Room is full (max 8 players)' };
+    if (this.players.length >= 10) {
+      return { success: false, message: 'Room is full (max 10 players)' };
     }
     if (this.status !== 'lobby') {
       return { success: false, message: 'Game already in progress' };
@@ -631,4 +632,9 @@ class UnoGame {
   }
 }
 
-module.exports = UnoGame;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = UnoGame;
+}
+if (typeof window !== 'undefined') {
+  window.UnoGame = UnoGame;
+}

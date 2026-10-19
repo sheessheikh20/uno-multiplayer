@@ -683,91 +683,75 @@ body.theme-yellow .ambient-glow { background: radial-gradient(circle at 50% 30%,
   margin-left: -5px;
 }
 
-/* Center Table */
+/* Center Playfield (Clean, Minimal, Non-cluttered) */
 .table-center {
   position: relative;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
-.direction-ring {
-  position: absolute;
-  width: 250px;
-  height: 250px;
-  border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  pointer-events: none;
-  animation: spinClockwise 16s linear infinite;
-}
-
-.direction-ring.counter-clockwise {
-  animation: spinCounter 16s linear infinite;
-  border-color: rgba(234, 179, 8, 0.3);
-}
-
-@keyframes spinClockwise {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes spinCounter {
-  from { transform: rotate(360deg); }
-  to { transform: rotate(0deg); }
-}
-
-.orbit-arrow {
-  position: absolute;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 14px;
-}
-.arrow-1 { top: -8px; left: 50%; transform: translateX(-50%) rotate(90deg); }
-.arrow-2 { right: -8px; top: 50%; transform: translateY(-50%) rotate(180deg); }
-.arrow-3 { bottom: -8px; left: 50%; transform: translateX(-50%) rotate(270deg); }
-.arrow-4 { left: -8px; top: 50%; transform: translateY(-50%) rotate(0deg); }
-
-.table-felt {
-  position: relative;
-  width: 300px;
-  height: 180px;
-  background: #111827;
-  border: 1px solid #1f2937;
-  border-radius: 60px;
+.center-playfield {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7);
+  gap: 12px;
 }
 
-.color-badge {
-  position: absolute;
-  top: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 2px 10px;
-  border-radius: 12px;
+.active-color-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #334155;
+  padding: 4px 14px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 1px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-body.theme-red .color-badge { color: #f87171; border-color: #ef4444; }
-body.theme-blue .color-badge { color: #60a5fa; border-color: #3b82f6; }
-body.theme-green .color-badge { color: #4ade80; border-color: #22c55e; }
-body.theme-yellow .color-badge { color: #fde047; border-color: #eab308; }
+.color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
 
-/* Draw Pile */
+body.theme-red .color-dot { background: var(--uno-red); box-shadow: 0 0 8px var(--uno-red); }
+body.theme-blue .color-dot { background: var(--uno-blue); box-shadow: 0 0 8px var(--uno-blue); }
+body.theme-green .color-dot { background: var(--uno-green); box-shadow: 0 0 8px var(--uno-green); }
+body.theme-yellow .color-dot { background: var(--uno-yellow); box-shadow: 0 0 8px var(--uno-yellow); }
+
+body.theme-red .active-color-pill { border-color: var(--uno-red); color: #f87171; }
+body.theme-blue .active-color-pill { border-color: var(--uno-blue); color: #60a5fa; }
+body.theme-green .active-color-pill { border-color: var(--uno-green); color: #4ade80; }
+body.theme-yellow .active-color-pill { border-color: var(--uno-yellow); color: #fde047; }
+
+.center-cards-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* Draw Pile & Discard Pile */
 .draw-pile-container, .discard-pile-container {
   position: relative;
-  width: 82px;
-  height: 122px;
+  width: 86px;
+  height: 126px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .draw-pile-container {
   cursor: pointer;
-  transition: transform 0.15s;
+  transition: transform 0.15s ease;
+  touch-action: manipulation;
 }
 
 .draw-pile-container:hover, .draw-pile-container:active {
@@ -780,34 +764,23 @@ body.theme-yellow .color-badge { color: #fde047; border-color: #eab308; }
   height: 100%;
   background: #0f172a;
   border: 1px solid #334155;
-  border-radius: 10px;
-  top: 3px;
-  left: 3px;
+  border-radius: 12px;
+  top: 4px;
+  left: 4px;
 }
 
 .draw-pile-badge {
   position: absolute;
-  bottom: -8px;
-  right: -8px;
+  bottom: -6px;
+  right: -6px;
   background: #0f172a;
-  border: 1px solid #334155;
-  color: #fff;
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
   font-size: 11px;
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 8px;
-}
-
-.draw-prompt-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-logo);
-  color: #fff;
-  font-size: 14px;
-  letter-spacing: 1px;
-  pointer-events: none;
+  z-index: 10;
 }
 
 /* =========================================================
@@ -1079,24 +1052,37 @@ body.theme-yellow .color-badge { color: #fde047; border-color: #eab308; }
   to { transform: scale(1.06); }
 }
 
-/* Horizontal Scrolling Hand */
+/* Horizontal Scrolling Hand (Flawless Bidirectional Touch Scroll) */
 .player-cards-wrapper {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 10px 10px 4px 10px;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  padding: 10px 16px max(8px, env(safe-area-inset-bottom)) 16px;
+  display: flex;
+}
+
+.player-cards-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .player-cards-hand {
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-start;
+  min-width: max-content;
+  margin: 0 auto;
   min-height: 130px;
-  padding: 0 16px;
+  padding: 4px 14px;
 }
 
 .player-cards-hand .uno-card {
   margin-left: -28px;
+  touch-action: manipulation;
+  will-change: transform;
 }
 
 .player-cards-hand .uno-card:first-child {
@@ -1104,7 +1090,7 @@ body.theme-yellow .color-badge { color: #fde047; border-color: #eab308; }
 }
 
 .player-cards-hand .uno-card:hover, .player-cards-hand .uno-card:active {
-  transform: translateY(-20px) !important;
+  transform: translateY(-16px) !important;
   z-index: 50 !important;
 }
 
@@ -1278,4 +1264,188 @@ body.theme-yellow .color-badge { color: #fde047; border-color: #eab308; }
   font-size: 36px;
   color: #fff;
   box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* =========================================================
+   COMPREHENSIVE MOBILE RESPONSIVE ENGINE (Flawless on all phones)
+   ========================================================= */
+@media (max-width: 480px), (max-height: 740px) {
+  .top-nav {
+    height: 48px;
+    padding: 0 12px;
+  }
+
+  .screen-view {
+    height: calc(100dvh - 48px);
+  }
+
+  #game-screen {
+    padding: 4px 8px 8px 8px;
+  }
+
+  .status-ticker {
+    font-size: 11px;
+    padding: 3px 10px;
+    margin: 0 auto 4px auto;
+  }
+
+  .draw-stack-alert {
+    font-size: 11px;
+    padding: 4px 10px;
+    margin: 0 auto 4px auto;
+  }
+
+  .opponents-zone {
+    min-height: 52px;
+    gap: 6px;
+    padding: 2px 4px;
+  }
+
+  .opponent-card {
+    padding: 4px 8px;
+    border-radius: 10px;
+    gap: 6px;
+  }
+
+  .opponent-avatar { font-size: 18px; }
+  .opponent-name { font-size: 11px; max-width: 65px; }
+  .turn-tag { font-size: 8px; padding: 1px 4px; }
+  .opponent-cards-badge { font-size: 10px; }
+
+  .center-playfield {
+    gap: 8px;
+  }
+
+  .active-color-pill {
+    padding: 3px 10px;
+    font-size: 10px;
+  }
+
+  .center-cards-row {
+    gap: 16px;
+  }
+
+  .draw-pile-container, .discard-pile-container {
+    width: 72px;
+    height: 106px;
+  }
+
+  .uno-card {
+    width: 72px;
+    height: 106px;
+    border-radius: 10px;
+    padding: 4px;
+  }
+
+  .card-oval {
+    width: 54px;
+    height: 84px;
+  }
+
+  .card-center-symbol {
+    font-size: 28px;
+  }
+
+  .card-corner-top, .card-corner-bottom {
+    font-size: 12px;
+  }
+
+  .player-cards-wrapper {
+    padding: 6px 10px max(6px, env(safe-area-inset-bottom)) 10px;
+  }
+
+  .player-cards-hand {
+    min-height: 110px;
+    padding: 2px 8px;
+  }
+
+  .player-cards-hand .uno-card {
+    margin-left: -24px;
+  }
+
+  .your-turn-banner {
+    padding: 4px 12px;
+    margin: 2px auto;
+  }
+
+  .turn-banner-text {
+    font-size: 12px;
+  }
+
+  .turn-sub-text {
+    font-size: 10px;
+  }
+
+  .action-buttons-bar {
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+
+  .btn-uno-shout {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .btn-catch-uno {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+
+  .player-status-bar {
+    margin-bottom: 2px;
+  }
+
+  .player-name {
+    font-size: 11px;
+  }
+
+  .turn-timer-container {
+    width: 75px;
+    height: 4px;
+  }
+
+  .color-select-btn {
+    height: 52px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .draw-pile-container, .discard-pile-container {
+    width: 64px;
+    height: 94px;
+  }
+
+  .uno-card {
+    width: 64px;
+    height: 94px;
+    padding: 3px;
+    border-radius: 8px;
+  }
+
+  .card-oval {
+    width: 48px;
+    height: 74px;
+  }
+
+  .card-center-symbol {
+    font-size: 22px;
+  }
+
+  .player-cards-hand .uno-card {
+    margin-left: -20px;
+  }
+
+  .player-cards-hand {
+    min-height: 98px;
+  }
+
+  .main-title {
+    font-size: 24px;
+  }
+
+  .rule-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
 }

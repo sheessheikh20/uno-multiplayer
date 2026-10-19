@@ -1,14 +1,44 @@
-// Clean, Robust UNO Multiplayer Client Logic
-const socket = io();
+// Robust, Universal UNO Multiplayer Client (Dual Server & Standalone Engine)
+let socket = null;
+let isSocketConnected = false;
+let localGame = null;
+let localBotManager = null;
 
-// State
-let myPlayerId = null;
+// Player Profile State
+let myPlayerId = 'p_local_' + Math.floor(Math.random() * 100000);
 let currentRoomCode = null;
 let gameState = null;
 let pendingWildCardId = null;
 let selectedAvatar = localStorage.getItem('uno_avatar') || '🦊';
 let myUsername = localStorage.getItem('uno_username') || 'Player';
 let turnTimerInterval = null;
+
+// Connect to Socket.IO if available
+if (typeof io !== 'undefined') {
+  try {
+    socket = io({
+      transports: ['websocket', 'polling'],
+      timeout: 4000,
+      reconnectionAttempts: 2
+    });
+
+    socket.on('connect', () => {
+      isSocketConnected = true;
+      myPlayerId = socket.id;
+      console.log('Connected to multiplayer server as:', socket.id);
+    });
+
+    socket.on('disconnect', () => {
+      isSocketConnected = false;
+    });
+
+    socket.on('connect_error', () => {
+      isSocketConnected = false;
+    });
+  } catch (e) {
+    console.warn('Socket.IO init skipped, offline local engine active:', e);
+  }
+}
 
 // DOM Elements
 const ambientGlow = document.getElementById('ambient-glow');
@@ -42,7 +72,6 @@ const discardPile = document.getElementById('discard-pile');
 const drawPileBtn = document.getElementById('draw-pile-btn');
 const drawCountBadge = document.getElementById('draw-count-badge');
 const tickerText = document.getElementById('ticker-text');
-const directionRing = document.getElementById('direction-ring');
 const drawStackAlert = document.getElementById('draw-stack-alert');
 const stackCount = document.getElementById('stack-count');
 const btnCallUno = document.getElementById('btn-call-uno');
@@ -54,6 +83,7 @@ const myTurnIndicator = document.getElementById('my-turn-indicator');
 const myAvatar = document.getElementById('my-avatar');
 const myName = document.getElementById('my-name');
 const activeColorLabel = document.getElementById('active-color-label');
+const colorBadge = document.getElementById('color-badge');
 
 // Modals
 const colorPickerModal = document.getElementById('color-picker-modal');
@@ -62,17 +92,33 @@ const rulesModal = document.getElementById('rules-modal');
 const fxComicShout = document.getElementById('fx-comic-shout');
 const comicBubbleText = document.getElementById('comic-bubble-text');
 
+// Helper to update profile in DOM
 function updateProfileUI() {
   if (navUserName) navUserName.textContent = myUsername;
   if (navUserAvatar) navUserAvatar.textContent = selectedAvatar;
   const inputEl = document.getElementById('player-name-input');
   if (inputEl) inputEl.value = myUsername;
+
+  // Sync avatar buttons active state in lobby
+  document.querySelectorAll('#avatar-grid .avatar-opt').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.avatar === selectedAvatar);
+  });
 }
 
 function syncModalAvatarSelection() {
   document.querySelectorAll('#modal-avatar-grid .avatar-opt').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.avatar === selectedAvatar);
   });
+}
+
+// Generate random 4-letter room code for local engine
+function generateLocalRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 // --- Initialization & Setup ---
@@ -121,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Lobby avatar selection
+  // Lobby avatar selection (Immediate, Snappy)
   document.querySelectorAll('#avatar-grid .avatar-opt').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#avatar-grid .avatar-opt').forEach(b => b.classList.remove('active'));
@@ -129,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedAvatar = btn.dataset.avatar;
       localStorage.setItem('uno_avatar', selectedAvatar);
       updateProfileUI();
+      window.soundEngine?.playCard();
     });
   });
 
@@ -138,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playerNameInput.addEventListener('input', (e) => {
       myUsername = e.target.value.trim() || 'Player';
       localStorage.setItem('uno_username', myUsername);
-      updateProfileUI();
+      if (navUserName) navUserName.textContent = myUsername;
     });
   }
 
@@ -176,13 +223,19 @@ document.addEventListener('DOMContentLoaded', () => {
   roomCodePill?.addEventListener('click', copyRoomCodeAction);
   document.getElementById('btn-copy-code')?.addEventListener('click', copyRoomCodeAction);
 
-  // Create Room
+  // CREATE ROOM
   document.getElementById('btn-create-room')?.addEventListener('click', () => {
     const playerName = myUsername || 'Player';
-    socket.emit('create-room', { playerName, avatar: selectedAvatar });
+    if (socket && isSocketConnected) {
+      socket.emit('create-room', { playerName, avatar: selectedAvatar });
+    } else {
+      // Local In-Browser Engine Fallback (Up to 10 players!)
+      const roomCode = generateLocalRoomCode();
+      initLocalGame(roomCode, playerName, selectedAvatar);
+    }
   });
 
-  // Join Room
+  // JOIN ROOM
   document.getElementById('btn-join-room')?.addEventListener('click', () => {
     const playerName = myUsername || 'Player';
     const roomCodeInput = document.getElementById('join-code-input');
@@ -190,60 +243,174 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!roomCode) {
       return showToast('Please enter a 4-letter room code!');
     }
-    socket.emit('join-room', { roomCode, playerName, avatar: selectedAvatar });
+    if (socket && isSocketConnected) {
+      socket.emit('join-room', { roomCode, playerName, avatar: selectedAvatar });
+    } else {
+      showToast('Connecting to room...');
+      initLocalGame(roomCode, playerName, selectedAvatar);
+    }
   });
 
-  // Add Player
+  // ADD PLAYER / BOT (Up to 10 players!)
   document.getElementById('btn-add-bot')?.addEventListener('click', () => {
-    socket.emit('add-bot');
+    if (socket && isSocketConnected) {
+      socket.emit('add-bot');
+    } else if (localGame) {
+      const botNames = ['Alex', 'Sam', 'Maya', 'Leo', 'Zoe', 'Rohan', 'Kai', 'Priya', 'Elena'];
+      const botAvatars = ['🦁', '🐼', '🐯', '🦄', '🚀', '👑', '⚡', '🧙', '🎯'];
+      const index = localGame.players.length;
+      if (index >= 10) {
+        return showToast('Room is full (max 10 players)!');
+      }
+      const bName = botNames[(index - 1) % botNames.length];
+      const bAvatar = botAvatars[(index - 1) % botAvatars.length];
+      const botId = `p_bot_${Date.now()}_${index}`;
+      const res = localGame.addPlayer(botId, bName, bAvatar, true);
+      if (res.success) {
+        syncLocalState();
+        showToast(`Added ${bName} (${localGame.players.length}/10 players)`);
+      } else {
+        showToast(res.message);
+      }
+    }
   });
 
-  // Start Game
+  // START MATCH
   btnStartGame?.addEventListener('click', () => {
-    socket.emit('start-game');
+    if (socket && isSocketConnected) {
+      socket.emit('start-game');
+    } else if (localGame) {
+      const res = localGame.startRound();
+      if (res.success) {
+        syncLocalState();
+        window.soundEngine?.cardShuffle();
+      } else {
+        showToast(res.message);
+      }
+    }
   });
 
-  // Draw Card Click
+  // DRAW PILE CLICK
   drawPileBtn?.addEventListener('click', () => {
     if (!isMyTurn()) return;
-    socket.emit('draw-card');
+    if (socket && isSocketConnected) {
+      socket.emit('draw-card');
+    } else if (localGame) {
+      const res = localGame.drawForCurrentPlayer();
+      if (res.success) {
+        window.soundEngine?.drawCard();
+        syncLocalState();
+      }
+    }
   });
 
-  // Pass Turn Click
+  // PASS TURN CLICK
   btnPassTurn?.addEventListener('click', () => {
-    socket.emit('pass-turn');
+    if (socket && isSocketConnected) {
+      socket.emit('pass-turn');
+    } else if (localGame) {
+      localGame.passTurn(myPlayerId);
+      syncLocalState();
+    }
     if (btnPassTurn) btnPassTurn.style.display = 'none';
   });
 
-  // Call UNO Click
+  // CALL UNO CLICK
   btnCallUno?.addEventListener('click', () => {
-    socket.emit('say-uno');
+    if (socket && isSocketConnected) {
+      socket.emit('say-uno');
+    } else if (localGame) {
+      const res = localGame.sayUno(myPlayerId);
+      if (res.success) {
+        window.soundEngine?.unoShout();
+        triggerComicShout(`${myUsername} SHOUTED UNO! 🔥`);
+        createConfettiBurst(25);
+        syncLocalState();
+      } else {
+        showToast(res.message);
+      }
+    }
   });
 
-  // Catch UNO Click
+  // CATCH UNO CLICK
   btnCatchUno?.addEventListener('click', () => {
-    socket.emit('catch-uno');
+    if (socket && isSocketConnected) {
+      socket.emit('catch-uno');
+    } else if (localGame) {
+      const res = localGame.catchUno(myPlayerId);
+      if (res.success) {
+        window.soundEngine?.catchSiren();
+        triggerComicShout(`🚨 CAUGHT! +${res.penaltyCount} CARDS!`);
+        syncLocalState();
+      } else {
+        showToast(res.message);
+      }
+    }
   });
 
-  // Color Picker buttons
+  // COLOR PICKER CLICK
   document.querySelectorAll('.color-select-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const chosenColor = btn.dataset.color;
       if (pendingWildCardId) {
-        socket.emit('play-card', { cardId: pendingWildCardId, chosenColor });
+        if (socket && isSocketConnected) {
+          socket.emit('play-card', { cardId: pendingWildCardId, chosenColor });
+        } else if (localGame) {
+          localGame.playCard(myPlayerId, pendingWildCardId, chosenColor);
+          window.soundEngine?.playCard();
+          syncLocalState();
+        }
         pendingWildCardId = null;
       }
       colorPickerModal?.classList.remove('active');
     });
   });
 
-  // Play Again Click
+  // PLAY AGAIN CLICK
   document.getElementById('btn-next-round')?.addEventListener('click', () => {
     roundOverModal?.classList.remove('active');
-    socket.emit('next-round');
+    if (socket && isSocketConnected) {
+      socket.emit('next-round');
+    } else if (localGame) {
+      localGame.startRound();
+      syncLocalState();
+    }
   });
-
 });
+
+// --- Local Standalone In-Browser Game Engine ---
+function initLocalGame(roomCode, playerName, avatar) {
+  if (typeof window.UnoGame === 'undefined') {
+    showToast('Engine loading...');
+    return;
+  }
+
+  currentRoomCode = roomCode;
+  localGame = new window.UnoGame(roomCode);
+  if (typeof window.UnoBot !== 'undefined') {
+    localBotManager = new window.UnoBot(localGame);
+  }
+
+  localGame.onStateChange = () => {
+    syncLocalState();
+  };
+
+  localGame.onBotAction = (botPlayer) => {
+    if (localBotManager) {
+      localBotManager.handleBotTurn(botPlayer);
+    }
+  };
+
+  localGame.addPlayer(myPlayerId, playerName, avatar, false);
+  onEnterRoom(roomCode, localGame.getStateForPlayer(myPlayerId));
+  showToast(`Room created! Code: ${roomCode}`);
+}
+
+function syncLocalState() {
+  if (!localGame) return;
+  const state = localGame.getStateForPlayer(myPlayerId);
+  updateGameState(state);
+}
 
 function isMyTurn() {
   return gameState && gameState.status === 'playing' && gameState.currentTurnPlayerId === myPlayerId;
@@ -272,29 +439,6 @@ function triggerComicShout(text) {
   }, 1600);
 }
 
-// --- Socket Events ---
-socket.on('connect', () => {
-  myPlayerId = socket.id;
-});
-
-socket.on('error-msg', (msg) => {
-  showToast(`⚠️ ${msg}`);
-});
-
-socket.on('room-created', ({ roomCode, playerId, state }) => {
-  myPlayerId = playerId;
-  currentRoomCode = roomCode;
-  onEnterRoom(roomCode, state);
-  showToast(`Room created! Code: ${roomCode}`);
-});
-
-socket.on('room-joined', ({ roomCode, playerId, state }) => {
-  myPlayerId = playerId;
-  currentRoomCode = roomCode;
-  onEnterRoom(roomCode, state);
-  showToast(`Joined Room ${roomCode}!`);
-});
-
 function onEnterRoom(roomCode, state) {
   if (lobbySetup) lobbySetup.style.display = 'none';
   if (lobbyWaiting) lobbyWaiting.style.display = 'flex';
@@ -304,35 +448,54 @@ function onEnterRoom(roomCode, state) {
   updateGameState(state);
 }
 
-socket.on('game-state', (state) => {
-  updateGameState(state);
-});
+// --- Socket Events (When online) ---
+if (socket) {
+  socket.on('error-msg', (msg) => {
+    showToast(`⚠️ ${msg}`);
+  });
 
-socket.on('card-played-fx', () => {
-  window.soundEngine?.playCard();
-});
+  socket.on('room-created', ({ roomCode, playerId, state }) => {
+    myPlayerId = playerId;
+    currentRoomCode = roomCode;
+    onEnterRoom(roomCode, state);
+    showToast(`Room created! Code: ${roomCode}`);
+  });
 
-socket.on('card-drawn-fx', ({ count, stacked }) => {
-  if (stacked) {
+  socket.on('room-joined', ({ roomCode, playerId, state }) => {
+    myPlayerId = playerId;
+    currentRoomCode = roomCode;
+    onEnterRoom(roomCode, state);
+    showToast(`Joined Room ${roomCode}!`);
+  });
+
+  socket.on('game-state', (state) => {
+    updateGameState(state);
+  });
+
+  socket.on('card-played-fx', () => {
+    window.soundEngine?.playCard();
+  });
+
+  socket.on('card-drawn-fx', ({ count, stacked }) => {
+    if (stacked) {
+      window.soundEngine?.catchSiren();
+      triggerComicShout(`+${count} CARDS!`);
+    } else {
+      window.soundEngine?.drawCard();
+    }
+  });
+
+  socket.on('uno-shout-fx', ({ playerName }) => {
+    window.soundEngine?.unoShout();
+    triggerComicShout(`${playerName} SHOUTED UNO! 🔥`);
+    createConfettiBurst(25);
+  });
+
+  socket.on('uno-caught-fx', (result) => {
     window.soundEngine?.catchSiren();
-    triggerComicShout(`+${count} CARDS!`);
-  } else {
-    window.soundEngine?.drawCard();
-  }
-});
-
-socket.on('uno-shout-fx', ({ playerName }) => {
-  window.soundEngine?.unoShout();
-  triggerComicShout(`${playerName} SHOUTED UNO! 🔥`);
-  createConfettiBurst(25);
-});
-
-socket.on('uno-caught-fx', (result) => {
-  window.soundEngine?.catchSiren();
-  triggerComicShout(`🚨 CAUGHT! +${result.penaltyCount} CARDS!`);
-});
-
-
+    triggerComicShout(`🚨 CAUGHT! +${result.penaltyCount} CARDS!`);
+  });
+}
 
 // --- State Renderer ---
 function updateGameState(state) {
@@ -385,7 +548,7 @@ function renderLobby(state) {
       if (waitingStatusText) waitingStatusText.textContent = 'Ready! Click START MATCH to begin.';
     } else {
       btnStartGame.disabled = true;
-      if (waitingStatusText) waitingStatusText.textContent = 'Add at least 1 friend or player to start (min 2 players).';
+      if (waitingStatusText) waitingStatusText.textContent = 'Add at least 1 player to start (up to 10 players).';
     }
   } else if (btnStartGame) {
     btnStartGame.style.display = 'none';
@@ -419,12 +582,7 @@ function renderGame(state) {
     }
   }
 
-  // Direction indicator
-  if (directionRing) {
-    directionRing.className = state.direction === 1 ? 'direction-ring clockwise' : 'direction-ring counter-clockwise';
-  }
-
-  // Discard Pile Top Card
+  // Top Discard Card
   renderTopDiscardCard(state.topCard);
 
   // Draw Pile count
@@ -530,9 +688,8 @@ function renderOpponents(opponents, currentTurnPlayerId) {
 function renderMyHand(cards) {
   if (!playerHand) return;
   playerHand.innerHTML = '';
-  const total = cards.length;
 
-  cards.forEach((card, index) => {
+  (cards || []).forEach((card) => {
     const isPlayable = card.isPlayable;
     const cardEl = createCardElement(card, isPlayable, true);
 
@@ -553,7 +710,13 @@ function handleCardClick(card) {
     pendingWildCardId = card.id;
     colorPickerModal?.classList.add('active');
   } else {
-    socket.emit('play-card', { cardId: card.id, chosenColor: null });
+    if (socket && isSocketConnected) {
+      socket.emit('play-card', { cardId: card.id, chosenColor: null });
+    } else if (localGame) {
+      localGame.playCard(myPlayerId, card.id, null);
+      window.soundEngine?.playCard();
+      syncLocalState();
+    }
   }
 }
 
@@ -600,91 +763,89 @@ function createCardElement(card, isPlayable, inHand = false) {
   return el;
 }
 
-function updateTurnTimer(expiresAt) {
-  if (turnTimerInterval) clearInterval(turnTimerInterval);
-  if (!expiresAt || !turnTimerBar) {
+function updateTurnTimer(turnExpiresAt) {
+  if (turnTimerInterval) {
+    clearInterval(turnTimerInterval);
+    turnTimerInterval = null;
+  }
+  if (!turnExpiresAt || !turnTimerBar) {
     if (turnTimerBar) turnTimerBar.style.width = '100%';
     return;
   }
 
-  const totalDuration = (gameState.turnTimerSeconds || 25) * 1000;
-
-  turnTimerInterval = setInterval(() => {
-    const remaining = expiresAt - Date.now();
-    const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+  const totalDuration = 25000;
+  const updateBar = () => {
+    const remaining = Math.max(0, turnExpiresAt - Date.now());
+    const pct = Math.min(100, (remaining / totalDuration) * 100);
     turnTimerBar.style.width = `${pct}%`;
-
-    if (remaining <= 0) {
-      clearInterval(turnTimerInterval);
+    if (pct < 25) {
+      turnTimerBar.style.backgroundColor = '#ef4444';
+    } else if (pct < 50) {
+      turnTimerBar.style.backgroundColor = '#eab308';
+    } else {
+      turnTimerBar.style.backgroundColor = '#22c55e';
     }
-  }, 100);
+  };
+
+  updateBar();
+  turnTimerInterval = setInterval(updateBar, 200);
 }
 
 function showVictoryModal(state) {
-  roundOverModal?.classList.add('active');
-  window.soundEngine?.victory();
-  createConfettiBurst(70);
+  if (!roundOverModal) return;
+  const podiumList = document.getElementById('podium-list');
+  if (!podiumList) return;
 
-  const table = document.getElementById('modal-scoreboard-table');
-  if (!table) return;
-  table.innerHTML = '';
+  podiumList.innerHTML = '';
+  window.soundEngine?.victoryFanfare();
+  createConfettiBurst(80);
 
-  if (state.winners && state.winners.length > 0) {
-    state.winners.forEach(w => {
-      const row = document.createElement('div');
-      row.className = 'podium-row winner';
-      row.innerHTML = `
-        <span class="podium-rank">${w.rankTitle}</span>
-        <span class="podium-name">${w.avatar} ${escapeHtml(w.name)}</span>
-        <span class="podium-tag safe">WINNER 🏆</span>
-      `;
-      table.appendChild(row);
-    });
+  state.winners.forEach((w) => {
+    const row = document.createElement('div');
+    row.className = `podium-row winner rank-${w.rank}`;
+    row.innerHTML = `
+      <span class="podium-rank">🏅 RANK #${w.rank}</span>
+      <span class="podium-name">${w.avatar} ${escapeHtml(w.name)}</span>
+      <span class="podium-badge">🏆 WINNER</span>
+    `;
+    podiumList.appendChild(row);
+  });
+
+  const nextBtn = document.getElementById('btn-next-round');
+  const me = state.players.find(p => p.id === myPlayerId);
+  if (nextBtn) {
+    nextBtn.style.display = (me && me.isHost) ? 'inline-flex' : 'none';
   }
 
-  const unfinished = state.players.filter(p => !p.hasFinished);
-  if (unfinished.length > 0) {
-    unfinished.forEach(p => {
-      const row = document.createElement('div');
-      row.className = 'podium-row';
-      row.innerHTML = `
-        <span class="podium-rank" style="color: #94a3b8;">Out</span>
-        <span class="podium-name">${p.avatar} ${escapeHtml(p.name)}</span>
-        <span style="color: #ff3344; font-size: 13px; font-weight: 700;">${p.cardCount} cards left</span>
-      `;
-      table.appendChild(row);
-    });
-  }
+  roundOverModal.classList.add('active');
 }
 
-function spawnFloatingEmoji(emoji) {
-  const el = document.createElement('div');
-  el.className = 'floating-emoji';
-  el.textContent = emoji;
-
-  const randomLeft = Math.floor(Math.random() * (window.innerWidth - 80)) + 40;
-  el.style.left = `${randomLeft}px`;
-  el.style.bottom = `60px`;
-
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2200);
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag] || tag));
 }
 
-function createConfettiBurst(count = 50) {
+function createConfettiBurst(count = 40) {
   if (!confettiCanvas) return;
   const ctx = confettiCanvas.getContext('2d');
   confettiCanvas.width = window.innerWidth;
   confettiCanvas.height = window.innerHeight;
 
   const particles = [];
-  const colors = ['#ff3344', '#0077ff', '#10cc60', '#ffb700', '#ffffff'];
+  const colors = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#ec4899', '#8b5cf6'];
 
   for (let i = 0; i < count; i++) {
     particles.push({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
-      vx: (Math.random() - 0.5) * 14,
-      vy: (Math.random() - 0.7) * 16,
+      vx: (Math.random() - 0.5) * 16,
+      vy: (Math.random() - 0.5) * 16 - 3,
       size: Math.random() * 8 + 4,
       color: colors[Math.floor(Math.random() * colors.length)],
       alpha: 1,
@@ -695,28 +856,28 @@ function createConfettiBurst(count = 50) {
 
   function frame() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-    let alive = false;
+    let active = 0;
 
     particles.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.4;
-      p.alpha -= 0.012;
+      p.vy += 0.35;
+      p.alpha -= 0.015;
       p.rotation += p.vRot;
 
       if (p.alpha > 0) {
-        alive = true;
+        active++;
         ctx.save();
-        ctx.globalAlpha = p.alpha;
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
         ctx.translate(p.x, p.y);
         ctx.rotate((p.rotation * Math.PI) / 180);
-        ctx.fillStyle = p.color;
         ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
         ctx.restore();
       }
     });
 
-    if (alive) {
+    if (active > 0) {
       requestAnimationFrame(frame);
     } else {
       ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
@@ -724,14 +885,4 @@ function createConfettiBurst(count = 50) {
   }
 
   requestAnimationFrame(frame);
-}
-
-function escapeHtml(str) {
-  return (str || '').replace(/[&<>"']/g, m => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[m]);
 }

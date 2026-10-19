@@ -127,7 +127,7 @@
 
           <div class="players-list-section">
             <div class="players-list-header">
-              <h3>PLAYERS (<span id="slots-count">1</span>/8)</h3>
+              <h3>PLAYERS (<span id="slots-count">1</span>/10)</h3>
               <button id="btn-add-bot" class="btn btn-sm btn-outline">+ Add Player</button>
             </div>
             <div class="players-grid" id="lobby-players-grid">
@@ -162,38 +162,33 @@
         <!-- Rendered opponent cards -->
       </section>
 
-      <!-- Center Table (Draw Pile, Discard Pile, Color Glow) -->
+      <!-- Center Playfield (Clean, Minimal, Non-cluttered) -->
       <section class="table-center">
-        <div class="direction-ring clockwise" id="direction-ring">
-          <div class="orbit-arrow arrow-1">➤</div>
-          <div class="orbit-arrow arrow-2">➤</div>
-          <div class="orbit-arrow arrow-3">➤</div>
-          <div class="orbit-arrow arrow-4">➤</div>
-        </div>
-
-        <div class="table-felt">
-          <!-- Active Color Label -->
-          <div class="color-badge" id="color-badge">
-            <span id="active-color-label">RED</span>
+        <div class="center-playfield">
+          <!-- Active Color Indicator -->
+          <div class="active-color-pill" id="color-badge">
+            <span class="color-dot" id="active-color-dot"></span>
+            <span class="color-text" id="active-color-label">RED</span>
           </div>
 
-          <!-- Draw Pile -->
-          <div class="draw-pile-container" id="draw-pile-btn" title="Tap to Draw Card">
-            <div class="deck-shadow deck-stack-2"></div>
-            <div class="uno-card card-back">
-              <div class="card-inner">
-                <div class="card-oval">
-                  <span class="deck-uno-text">UNO</span>
+          <div class="center-cards-row">
+            <!-- Draw Pile -->
+            <div class="draw-pile-container" id="draw-pile-btn" title="Tap to Draw Card">
+              <div class="deck-shadow deck-stack-2"></div>
+              <div class="uno-card card-back">
+                <div class="card-inner">
+                  <div class="card-oval">
+                    <span class="deck-uno-text">UNO</span>
+                  </div>
                 </div>
               </div>
+              <div class="draw-pile-badge" id="draw-count-badge">84</div>
             </div>
-            <div class="draw-pile-badge" id="draw-count-badge">84</div>
-            <div class="draw-prompt-label">DRAW</div>
-          </div>
 
-          <!-- Discard Pile -->
-          <div class="discard-pile-container" id="discard-pile">
-            <!-- Dynamic top card -->
+            <!-- Discard Pile -->
+            <div class="discard-pile-container" id="discard-pile">
+              <!-- Dynamic top card -->
+            </div>
           </div>
         </div>
       </section>
@@ -309,7 +304,7 @@
             <h4>⚡ Special House Rules</h4>
             <p><strong>+4 pe +2 Allowed:</strong> Counter attacks with +2 or +4 to stack the penalty onto the next player!</p>
             <p><strong>UNO Penalty:</strong> If caught not saying UNO with 1 card left, penalty = <em>total players in the match</em> cards!</p>
-            <p><strong>Winners:</strong> 5+ players = Top 2 Winners, 2-3 players = 1-2 Winners. No points system!</p>
+            <p><strong>Winners:</strong> Up to 10 players! (7-10 players = Top 3 Winners, 4-6 = Top 2, 2-3 = 1-2 Winners). No points system!</p>
           </div>
           <div class="rule-item">
             <h4>🎴 Basic Gameplay</h4>
@@ -320,9 +315,11 @@
       </div>
     </div>
 
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Socket.IO Client with CDN fallback for serverless hosting like Vercel -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="engine/unoDeck.js"></script>
+  <script src="engine/unoGame.js"></script>
+  <script src="engine/unoBot.js"></script>
   <script src="sound.js"></script>
   <script src="app.js"></script>
 </body>

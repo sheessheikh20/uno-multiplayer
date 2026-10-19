@@ -140,9 +140,19 @@ function isValidPlay(card, topCard, activeColor) {
   return false;
 }
 
-module.exports = {
-  COLORS,
-  createDeck,
-  shuffle,
-  isValidPlay
-};
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    COLORS,
+    createDeck,
+    shuffle,
+    isValidPlay
+  };
+}
+if (typeof window !== 'undefined') {
+  window.UnoDeck = {
+    COLORS,
+    createDeck,
+    shuffle,
+    isValidPlay
+  };
+}
